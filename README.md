@@ -82,12 +82,29 @@ Requires Node 20+ and Postgres 17.
 ```bash
 npm install
 npm run db:up      # creates ledger_dev and applies migrations/001_ledger.sql
-npm test           # 8 tests
+npm test           # 20 tests
 npm run typecheck  # tsc --noEmit, strict
 ```
 
 `pg` is used directly rather than an ORM. The point of the project is the SQL
 and the transaction boundaries, and an ORM hides both.
+
+## Two bugs the tests caught
+
+Both are the kind that survive code review and surface in production.
+
+**A retried payout was rejected as insufficient funds.** `payout` validated the
+balance before checking whether the reference had already been posted. On a
+retry the money had already moved, so the guard compared the request against a
+balance it had itself reduced, and raised a false alarm about a payout that had
+in fact succeeded. Idempotency is now checked first, and the order is commented
+in the source because it is not obvious.
+
+**Negative zero escaped as an amount.** `owedTo` flips the sign of a balance, and
+an empty account sums to zero, so it returned `-0`. That is a distinct value —
+`Object.is(-0, 0)` is `false` — which compares unequal to zero in a strict
+assertion while printing as `0` in every log and error message you would think
+to look at. It is collapsed in `kobo()`, once, where amounts are made.
 
 ## Not in scope
 

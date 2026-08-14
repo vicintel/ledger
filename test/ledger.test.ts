@@ -131,3 +131,7 @@ test('format is display only', () => {
   assert.equal(format(kobo(7)), '₦0.07');
   assert.equal(format(kobo(-25_000)), '-₦250.00');
 });
+
+test('negative zero never escapes as an amount', () => {
+  assert.ok(Object.is(kobo(-0), 0), 'kobo(-0) must be +0, or it compares unequal to zero');
+});

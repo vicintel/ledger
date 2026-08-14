@@ -157,6 +157,6 @@ test('every account together sums to zero, whatever happened', async () => {
   await payout(STORE, naira(9_650), 'PAYOUT_1');
   await refund('PSK_2');
 
-  const all = await pool.query<{ total: number }>('select coalesce(sum(amount), 0) as total from entries');
+  const all = await pool.query<{ total: number }>('select coalesce(sum(amount), 0)::bigint as total from entries');
   assert.equal(kobo(all.rows[0]!.total), 0);
 });

@@ -20,7 +20,11 @@ export function kobo(n: number): Kobo {
   if (!Number.isSafeInteger(n)) {
     throw new RangeError(`amount is beyond safe integer range: ${n}`);
   }
-  return n as Kobo;
+  // Negative zero is a real, distinct value: Object.is(-0, 0) is false. It
+  // arrives whenever an empty balance has its sign flipped, and it compares
+  // unequal to zero in a strict assertion while printing as "0" in every log
+  // and error message you would look at. Collapse it here, once.
+  return (n === 0 ? 0 : n) as Kobo;
 }
 
 /** ₦96.50 → 9650 kobo. Only for reading human input; never for arithmetic. */

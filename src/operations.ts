@@ -9,7 +9,7 @@
 
 import { pool } from './db.ts';
 import { kobo, type Kobo } from './money.ts';
-import { transaction, post, owedTo, type PostResult } from './ledger.ts';
+import { transaction, post, owedTo, alreadyPosted, type PostResult } from './ledger.ts';
 
 /** How long a seller's share sits before it can be paid out. */
 export const CLEARANCE_DAYS = 7;

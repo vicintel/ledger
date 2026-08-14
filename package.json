@@ -1,0 +1,25 @@
+{
+  "name": "ledger",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "A double-entry ledger for marketplace payouts, in TypeScript on Postgres",
+  "scripts": {
+    "db:up": "createdb ledger_dev 2>/dev/null; psql -q -d ledger_dev -f migrations/001_ledger.sql",
+    "db:reset": "dropdb --if-exists ledger_dev && npm run db:up",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.7.2",
+    "tsx": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=20.18"
+  }
+}

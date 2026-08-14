@@ -52,7 +52,12 @@ export type PostResult = { posted: boolean; txnId: number | null };
  * idempotency key means the second delivery moves no money, and the caller
  * does not have to know or care whether it was the first.
  */
-export async function post(txn: Transaction): Promise<PostResult> {
+export type PostOptions = {
+  /** Park this transaction behind a clearance hold for this many days. */
+  holdDays?: number;
+};
+
+export async function post(txn: Transaction, opts: PostOptions = {}): Promise<PostResult> {
   const client = await pool.connect();
   try {
     await client.query('begin');
@@ -77,6 +82,13 @@ export async function post(txn: Transaction): Promise<PostResult> {
       await client.query(
         'insert into entries (txn_id, account_id, amount) values ($1, $2, $3)',
         [txnId, accountId, line.amount],
+      );
+    }
+
+    if (opts.holdDays !== undefined) {
+      await client.query(
+        `insert into holds (txn_id, clears_at) values ($1, now() + make_interval(days => $2))`,
+        [txnId, opts.holdDays],
       );
     }
 
@@ -123,10 +135,34 @@ export async function balanceOf(code: string): Promise<Kobo> {
   return kobo(Number(res.rows[0]?.balance ?? 0));
 }
 
+/**
+ * What a seller is actually owed.
+ *
+ * Debits are positive and credits negative, so a liability account carries a
+ * negative balance. Flipping the sign here keeps that convention out of every
+ * caller. It reads `seller.available` and nothing else, which is the whole
+ * point of the hold: money that has not cleared lives in a different account,
+ * so a payout cannot see it by construction rather than by remembering to check.
+ */
+export async function owedTo(storeId: string): Promise<Kobo> {
+  return kobo(-(await balanceOf(`seller.available:${storeId}`)));
+}
+
 export async function txnCount(idemKey: string): Promise<number> {
   const res = await pool.query<{ n: string }>(
     'select count(*)::text as n from transactions where idem_key = $1',
     [idemKey],
   );
   return Number(res.rows[0]!.n);
+}
+
+/**
+ * Whether this reference has already been posted.
+ *
+ * Callers that validate before posting need this, because a validation failure
+ * on a retry is a false alarm: the operation already happened, and re-checking
+ * its preconditions against a balance it has already changed will reject it.
+ */
+export async function alreadyPosted(idemKey: string): Promise<boolean> {
+  return (await txnCount(idemKey)) > 0;
 }

@@ -7,7 +7,7 @@
   "scripts": {
     "db:up": "createdb ledger_dev 2>/dev/null; psql -q -d ledger_dev -f migrations/001_ledger.sql",
     "db:reset": "dropdb --if-exists ledger_dev && npm run db:up",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "node --import tsx --test --test-concurrency=1 test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

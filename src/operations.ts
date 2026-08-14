@@ -83,6 +83,16 @@ export async function payout(storeId: string, amount: Kobo, reference: string): 
     throw new RangeError(`payout must be positive, got ${amount}`);
   }
 
+  // Idempotency is checked before the funds guard, and the order matters.
+  // A retried payout has already moved the money, so the balance it is
+  // validated against is the one it itself reduced — checking funds first
+  // rejects the retry with InsufficientFunds and raises a false alarm about
+  // a payout that in fact succeeded. A test caught this; the first version
+  // of this function had the two the wrong way round.
+  if (await alreadyPosted(reference)) {
+    return { posted: false, txnId: null };
+  }
+
   const available = await owedTo(storeId);
   if (amount > available) {
     throw new InsufficientFunds(storeId, amount, available);

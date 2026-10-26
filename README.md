@@ -1,7 +1,5 @@
 # ledger
 
-[![CI](https://github.com/vicintel/ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/vicintel/ledger/actions/workflows/ci.yml)
-
 A double-entry ledger for marketplace payouts, in TypeScript on Postgres.
 
 Myshoplet's payout ledger runs on MongoDB in production and handles real money

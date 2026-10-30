@@ -22,6 +22,7 @@ constraint, and the bug is not expressible.
 | `balance` stored on the wallet and updated on every change | `sum(amount)` over the entries, never stored, cannot drift |
 | A seven-day hold enforced by application logic before each payout | A `holds` row with `clears_at`; a payout query cannot see uncleared funds |
 | Multi-step money writes with no surrounding transaction | `begin … commit`, with the balance check deferred to the end |
+| Corrections by editing a document | Entries and transactions are append-only; `update` and `delete` raise |
 
 The middle column is not a criticism of the production system — it works, and it
 has held real money for a year. It is a record of what a different tool would
@@ -81,8 +82,8 @@ Requires Node 20+ and Postgres 17.
 
 ```bash
 npm install
-npm run db:up      # creates ledger_dev and applies migrations/001_ledger.sql
-npm test           # 20 tests
+npm run db:up      # creates ledger_dev and applies migrations/*.sql in order
+npm test           # 30 tests
 npm run typecheck  # tsc --noEmit, strict
 ```
 
@@ -105,6 +106,38 @@ an empty account sums to zero, so it returned `-0`. That is a distinct value —
 `Object.is(-0, 0)` is `false` — which compares unequal to zero in a strict
 assertion while printing as `0` in every log and error message you would think
 to look at. It is collapsed in `kobo()`, once, where amounts are made.
+
+## Four more, found in review
+
+The first version passed every test above and was still wrong in ways a
+payments reviewer would find in minutes. Each now has a failing-first test in
+`test/hardening.test.ts`, and the schema changes are in `migrations/002_hardening.sql`.
+
+**Concurrent payouts overdrew a seller.** `payout` read the balance, then
+posted in a separate transaction. Four ₦9,000 payouts fired at once against
+₦9,650 all passed the check, leaving the seller at −₦26,350. Every money
+movement for a seller now takes a transaction-scoped advisory lock and reads
+the balance inside the transaction that spends it.
+
+**A refund during the hold was paid out anyway.** The refund reversed the
+entries but left the hold in place, so the scheduled release later moved the
+seller's share into `available` for an order that had been given back. A refund
+now cancels the hold, and takes the share back from wherever it sits: pending,
+available, or — if it was already paid out — a `seller.receivable` the seller
+owes us, rather than a quiet hole in pending.
+
+**`refund` accepted any reference.** It would "refund" a payout or a refund.
+Only `order.paid` is refundable now.
+
+**An `update` could unbalance the books.** The zero-sum trigger fired on
+insert only. Entries and transactions are now append-only at the database
+level; a mistake is fixed with a correcting transaction.
+
+Two smaller ones: a reference reused for a *different* request (another amount,
+or a payout reusing an order's reference) was silently treated as a retry and
+reported as done. Each transaction now stores a fingerprint of its request, and
+a mismatch raises `IdempotencyConflict`. And `releaseCleared` stamped the hold
+outside the transaction that moved the money; they now commit together.
 
 ## Not in scope
 

@@ -5,7 +5,7 @@
   "type": "module",
   "description": "A double-entry ledger for marketplace payouts, in TypeScript on Postgres",
   "scripts": {
-    "db:up": "createdb ledger_dev 2>/dev/null; psql -q -d ledger_dev -f migrations/001_ledger.sql",
+    "db:up": "createdb ledger_dev 2>/dev/null; for f in migrations/*.sql; do psql -q -v ON_ERROR_STOP=1 -d ledger_dev -f \"$f\" || exit 1; done",
     "db:reset": "dropdb --if-exists ledger_dev && npm run db:up",
     "test": "node --import tsx --test --test-concurrency=1 test/*.test.ts",
     "typecheck": "tsc --noEmit"

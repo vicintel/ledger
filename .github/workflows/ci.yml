@@ -27,8 +27,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Apply the migration
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f migrations/001_ledger.sql
+      - name: Apply the migrations
+        run: for f in migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f" || exit 1; done
       - name: Type check
         run: npm run typecheck
       - name: Tests
